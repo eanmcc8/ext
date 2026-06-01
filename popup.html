@@ -131,6 +131,7 @@
     // POPUP UI LOGIC (inline)
     // ==============================
 
+    // Tab switching
     document.querySelectorAll('.tab').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
@@ -140,6 +141,7 @@
       });
     });
 
+    // Parse key:value or key=value textarea
     function parseKeyValue(text) {
       const obj = {};
       text.split('\n').forEach(line => {
@@ -154,6 +156,7 @@
       return obj;
     }
 
+    // Login execution
     document.getElementById('executeLogin').addEventListener('click', async () => {
       const url = document.getElementById('url').value.trim();
       if (!url) { showResult('Please enter a URL.', 'red'); return; }
@@ -174,6 +177,7 @@
       el.style.display = 'block'; el.style.color = color; el.textContent = text;
     }
 
+    // Proxy saving
     document.getElementById('saveProxy').addEventListener('click', async () => {
       const raw = document.getElementById('proxyList').value;
       const lines = raw.split('\n').filter(l => l.trim());
@@ -192,6 +196,7 @@
       document.getElementById('proxyStatus').textContent = `Saved ${list.length} proxies.`;
     });
 
+    // Steps saving
     document.getElementById('saveSteps').addEventListener('click', async () => {
       const raw = document.getElementById('stepsConfig').value.trim();
       let config;
@@ -200,6 +205,7 @@
       document.getElementById('stepsStatus').textContent = 'Steps saved.';
     });
 
+    // External saving
     document.getElementById('saveExternal').addEventListener('click', async () => {
       const totp = document.getElementById('totpEndpoint').value.trim();
       const captcha = document.getElementById('captchaEndpoint').value.trim();
@@ -210,6 +216,7 @@
       document.getElementById('externalStatus').textContent = 'External config saved.';
     });
 
+    // Fingerprint saving
     document.getElementById('saveFingerprint').addEventListener('click', async () => {
       const config = {
         canvas: { enabled: document.getElementById('canvasEnabled').checked, seed: parseInt(document.getElementById('canvasSeed').value, 10) },
@@ -223,6 +230,7 @@
       document.getElementById('fpStatus').textContent = 'Fingerprint profile saved and applied.';
     });
 
+    // Load existing configs from storage
     chrome.storage.sync.get(['proxyList', 'stepsConfig', 'externalConfig', 'fingerprintConfig'], (data) => {
       if (data.proxyList) document.getElementById('proxyList').value = data.proxyList.map(p => `${p.scheme}://${p.host}:${p.port}`).join('\n');
       if (data.stepsConfig) document.getElementById('stepsConfig').value = JSON.stringify(data.stepsConfig, null, 2);
@@ -232,4 +240,14 @@
       }
       if (data.fingerprintConfig) {
         const f = data.fingerprintConfig;
-        if (f.canvas) { document.getElementById('canvasEnabled').checked = f.canvas.enabled !== false; document.getElementById('canvasSeed').value = f.canvas.seed || 123
+        if (f.canvas) { document.getElementById('canvasEnabled').checked = f.canvas.enabled !== false; document.getElementById('canvasSeed').value = f.canvas.seed || 12345; }
+        if (f.audio) { document.getElementById('audioEnabled').checked = f.audio.enabled !== false; document.getElementById('audioNoise').value = f.audio.noise || 0.001; }
+        if (f.fonts) { document.getElementById('fontsEnabled').checked = f.fonts.enabled !== false; document.getElementById('fontsList').value = (f.fonts.list || ['Arial','Times New Roman','Courier New']).join(', '); }
+        if (f.webgl) { document.getElementById('webglEnabled').checked = f.webgl.enabled !== false; document.getElementById('webglVendor').value = f.webgl.vendor || ''; document.getElementById('webglRenderer').value = f.webgl.renderer || ''; }
+        if (f.navigator) { document.getElementById('navUserAgent').value = f.navigator.userAgent || ''; document.getElementById('navPlatform').value = f.navigator.platform || ''; document.getElementById('navHwConcurrency').value = f.navigator.hardwareConcurrency || 4; document.getElementById('navDeviceMemory').value = f.navigator.deviceMemory || 8; }
+        if (f.screen) { document.getElementById('screenWidth').value = f.screen.width || 1920; document.getElementById('screenHeight').value = f.screen.height || 1080; document.getElementById('screenColorDepth').value = f.screen.colorDepth || 24; }
+      }
+    });
+  </script>
+</body>
+</html>
