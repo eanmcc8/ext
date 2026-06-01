@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Universal Login Pro",
+  "version": "3.1.0",
+  "description": "Advanced login automation with proxy, multi‑step, 2FA, and full fingerprint spoofing – all in 3 files.",
+  "permissions": [
+    "storage",
+    "scripting",
+    "webRequest",
+    "proxy",
+    "tabs",
+    "webNavigation"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Universal Login Pro"
+  }
+}
