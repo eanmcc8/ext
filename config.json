@@ -1,0 +1,41 @@
+{
+            "login_url": "",
+            "authentication_method": "credentials",  # options: cookies, headers, credentials
+            "username": "",
+            "password": "",
+            "username_selector": "",
+            "password_selector": "",
+            "login_button_selector": "",
+            "manual_cookies": [],
+            "manual_headers": {},
+            "fingerprint_spoofing": {
+                "enabled": True,
+                "navigator": {
+                    "platform": "Win32",
+                    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+                    "language": "en-US",
+                    "languages": ["en-US", "en"],
+                    "webdriver": False,
+                    "plugins": [
+                        {"name": "Chrome PDF Viewer", "filename": "mhjfbmdlhnkhlgllnjjnhpbnjbigdmjl.pdf"},
+                        {"name": "Chromium PDF Viewer", "filename": "khgukdpfpoeabjkaobknalipjnnjbpil.pdf"},
+                        {"name": "Native PDF Viewer", "filename": "cmkiofbbfejfnfnlbdhggjchfokcpepi.pdf"}
+                    ],
+                    "platformSubtype": "x64"
+                },
+                "screen": {
+                    "width": 1920,
+                    "height": 1080,
+                    "colorDepth": 24,
+                    "pixelRatio": 1.0
+                },
+                "hardwareConcurrency": 8,
+                "deviceMemory": 8,
+                "maxTouchPoints": 0,
+                "vendor": "Google Inc.",
+                "vendorSub": "",
+                "renderer": "Intel Iris OpenGL Engine"
+            },
+            "wait_timeout": 15, # Increased default wait timeout
+            "random_delay_range": [0.5, 2.0] # More flexible random delay range
+        }
