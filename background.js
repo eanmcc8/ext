@@ -1,5 +1,5 @@
 // ============================================================
-// background.js – Complete backend with all modules
+// background.js – Service Worker with all backend logic
 // ============================================================
 
 // ---------- Proxy Manager ----------
@@ -69,7 +69,7 @@ class StepRunner {
       if (typeof body === 'object') body[step.captchaField] = token;
     }
 
-    // Apply proxy
+    // Apply proxy for this step
     const proxy = context.proxyManager.getActive();
     if (proxy) await context.proxyManager.applyProxy(proxy);
 
@@ -84,6 +84,7 @@ class StepRunner {
     const text = await resp.text();
     const extracted = {};
 
+    // Extract cookies from response headers
     if (step.extractCookies) {
       const sc = resp.headers.get('set-cookie');
       if (sc) {
@@ -96,10 +97,12 @@ class StepRunner {
         extracted.cookies = cookies;
       }
     }
+    // Extract regex
     if (step.extractRegex) {
       const m = text.match(new RegExp(step.extractRegex));
       if (m) extracted[step.extractName] = m[1];
     }
+    // Extract JSON path
     if (step.extractJsonPath) {
       try {
         const json = JSON.parse(text);
@@ -150,116 +153,16 @@ class ExternalService {
   }
 }
 
-// ---------- Fingerprint Injector ----------
-class FingerprintInjector {
-  constructor(config) { this.config = config || {}; }
-  generateCode() {
-    const cfg = this.config;
-    return `
-      (function() {
-        if (${!!cfg.canvas?.enabled}) {
-          const seed = ${cfg.canvas?.seed || 12345};
-          const orig = CanvasRenderingContext2D.prototype.getImageData;
-          CanvasRenderingContext2D.prototype.getImageData = function(...args) {
-            const img = orig.apply(this, args);
-            for (let i = 0; i < img.data.length; i += 4) {
-              img.data[i]   = Math.min(255, Math.max(0, Math.round(img.data[i] + (Math.sin((seed + i) * 1.618) * 0.5 - 0.5) * 2)));
-              img.data[i+1] = Math.min(255, Math.max(0, Math.round(img.data[i+1] + (Math.sin((seed + i + 1) * 1.618) * 0.5 - 0.5) * 2)));
-            }
-            return img;
-          };
-        }
-        if (${!!cfg.audio?.enabled}) {
-          const noise = ${cfg.audio?.noise || 0.001};
-          const orig2 = AudioBuffer.prototype.getChannelData;
-          AudioBuffer.prototype.getChannelData = function(channel) {
-            const data = orig2.call(this, channel);
-            for (let i = 0; i < data.length; i++) data[i] += (Math.random() - 0.5) * noise;
-            return data;
-          };
-        }
-        if (${!!cfg.fonts?.enabled}) {
-          const fonts = ${JSON.stringify(cfg.fonts?.list || ['Arial','Times New Roman','Courier New'])};
-          Object.defineProperty(document, 'fonts', {
-            get: () => ({
-              ready: Promise.resolve({
-                forEach: (cb) => fonts.forEach(f => cb({ family: f })),
-                keys: () => fonts.keys(),
-                values: () => fonts.values(),
-                entries: () => fonts.entries()
-              })
-            })
-          });
-        }
-        if (${!!cfg.webgl?.enabled}) {
-          const vendor = ${JSON.stringify(cfg.webgl?.vendor || "Google Inc. (Intel)")};
-          const renderer = ${JSON.stringify(cfg.webgl?.renderer || "ANGLE (Intel, Intel(R) UHD Graphics 630, OpenGL 4.1)")};
-          const orig3 = WebGLRenderingContext.prototype.getParameter;
-          WebGLRenderingContext.prototype.getParameter = function(p) {
-            if (p === 37445) return vendor;
-            if (p === 37446) return renderer;
-            return orig3.call(this, p);
-          };
-          const orig4 = WebGL2RenderingContext.prototype.getParameter;
-          WebGL2RenderingContext.prototype.getParameter = function(p) {
-            if (p === 37445) return vendor;
-            if (p === 37446) return renderer;
-            return orig4.call(this, p);
-          };
-        }
-        if (${!!cfg.navigator?.userAgent}) {
-          Object.defineProperty(navigator, 'userAgent', { get: () => ${JSON.stringify(cfg.navigator.userAgent)}, configurable: false });
-        }
-        if (${!!cfg.navigator?.platform}) {
-          Object.defineProperty(navigator, 'platform', { get: () => ${JSON.stringify(cfg.navigator.platform)}, configurable: false });
-        }
-        if (${!!cfg.navigator?.hardwareConcurrency}) {
-          Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => ${cfg.navigator.hardwareConcurrency}, configurable: false });
-        }
-        if (${!!cfg.navigator?.deviceMemory}) {
-          Object.defineProperty(navigator, 'deviceMemory', { get: () => ${cfg.navigator.deviceMemory}, configurable: false });
-        }
-        if (${!!cfg.screen?.width}) {
-          Object.defineProperty(screen, 'width', { get: () => ${cfg.screen.width} });
-        }
-        if (${!!cfg.screen?.height}) {
-          Object.defineProperty(screen, 'height', { get: () => ${cfg.screen.height} });
-        }
-        if (${!!cfg.screen?.colorDepth}) {
-          Object.defineProperty(screen, 'colorDepth', { get: () => ${cfg.screen.colorDepth} });
-        }
-      })();
-    `;
-  }
-}
-
 // ---------- Instantiate modules ----------
-const proxyManager = new ProxyManager();
+const proxy = new ProxyManager();
 const steps = new StepRunner();
-const external = new ExternalService();
-const fingerprint = new FingerprintInjector();
+const ext = new ExternalService();
 
 // Load stored configs
-chrome.storage.sync.get(['proxyList', 'stepsConfig', 'externalConfig', 'fingerprintConfig'], (data) => {
-  proxyManager.init(data.proxyList);
+chrome.storage.sync.get(['proxyList', 'stepsConfig', 'externalConfig'], (data) => {
+  proxy.init(data.proxyList);
   steps.init(data.stepsConfig);
-  external.init(data.externalConfig);
-  fingerprint.config = data.fingerprintConfig || {};
-});
-
-// Inject fingerprint on every page load (main frame only)
-chrome.webNavigation.onCommitted.addListener(async (details) => {
-  if (details.frameId === 0) {
-    const code = fingerprint.generateCode();
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: details.tabId },
-        world: 'MAIN',
-        runAt: 'document_start',
-        func: new Function(code) // execute as function
-      });
-    } catch (e) { /* ignore */ }
-  }
+  ext.init(data.externalConfig);
 });
 
 // ---------- Message handler ----------
@@ -269,7 +172,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       handleLogin(msg.params).then(sendResponse).catch(e => sendResponse({error: e.message}));
       return true;
     case 'updateProxy':
-      proxyManager.updateList(msg.list);
+      proxy.updateList(msg.list);
       sendResponse({ok:true});
       break;
     case 'updateSteps':
@@ -277,24 +180,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sendResponse({ok:true});
       break;
     case 'updateExternal':
-      external.init(msg.config);
+      ext.init(msg.config);
       chrome.storage.sync.set({ externalConfig: msg.config });
       sendResponse({ok:true});
       break;
     case 'updateFingerprint':
-      fingerprint.config = msg.config;
+      // fingerprint config is saved to storage, content script picks it up on page load / reload
       chrome.storage.sync.set({ fingerprintConfig: msg.config });
-      // Re‑inject into current tab
-      chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
-        if (tabs[0]) {
-          const code = fingerprint.generateCode();
-          await chrome.scripting.executeScript({
-            target: { tabId: tabs[0].id },
-            world: 'MAIN',
-            runAt: 'document_start',
-            func: new Function(code)
-          });
-        }
+      // Reload active tab to apply new fingerprint
+      chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+        if (tabs[0]) chrome.tabs.reload(tabs[0].id);
       });
       sendResponse({ok:true});
       break;
@@ -306,19 +201,28 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 // ---------- Login execution ----------
 async function handleLogin(params) {
   const { url, cookies, headers, method, body } = params;
+
   // Check multi-step sequence
   const seq = steps.getSequence(url);
   if (seq && seq.steps && seq.steps.length > 0) {
-    return await steps.run(seq.steps, { proxyManager, external });
+    return await steps.run(seq.steps, { proxyManager: proxy, external: ext });
   }
+
   // Single request
-  const activeProxy = proxyManager.getActive();
-  if (activeProxy) await proxyManager.applyProxy(activeProxy);
+  const activeProxy = proxy.getActive();
+  if (activeProxy) await proxy.applyProxy(activeProxy);
+
   const cookieString = Object.entries(cookies).map(([k,v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('; ');
   const fetchHeaders = { ...headers };
   if (cookieString) fetchHeaders.Cookie = cookieString;
-  const opts = { method: method || 'GET', headers: fetchHeaders, credentials: 'omit' };
+
+  const opts = {
+    method: method || 'GET',
+    headers: fetchHeaders,
+    credentials: 'omit'
+  };
   if (body && method !== 'GET') opts.body = body;
+
   const resp = await fetch(url, opts);
   const ct = resp.headers.get('content-type') || '';
   let data;
