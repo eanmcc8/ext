@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing: border-box; }
+    body { width: 520px; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8f9fa; margin: 0; font-size: 13px; }
+    h2 { margin-top: 0; color: #333; }
+    .tab-bar { display: flex; margin-bottom: 12px; }
+    .tab-bar button { flex: 1; padding: 8px; cursor: pointer; border: 1px solid #ccc; background: #eee; font-size: 12px; }
+    .tab-bar button.active { background: #007aff; color: white; border-color: #007aff; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    label { display: block; margin-top: 10px; font-weight: 600; }
+    input, textarea, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 4px; font-size: 13px; }
+    textarea { min-height: 50px; font-family: monospace; }
+    button.primary { margin-top: 16px; padding: 10px 20px; background: #007aff; color: white; border: none; border-radius: 6px; cursor: pointer; width: 100%; font-size: 14px; }
+    button.primary:hover { background: #005bb5; }
+    #result { margin-top: 12px; padding: 10px; background: #e9ecef; border-radius: 6px; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; display: none; }
+    .info { font-size: 11px; color: #666; margin-top: 4px; }
+    fieldset { border: 1px solid #ddd; padding: 12px; margin-bottom: 12px; }
+    legend { font-weight: bold; font-size: 13px; }
+    .status { font-size: 12px; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <h2>🔐 Universal Login Pro</h2>
+  <div class="tab-bar">
+    <button class="tab active" data-tab="login">Login</button>
+    <button class="tab" data-tab="proxy">Proxy</button>
+    <button class="tab" data-tab="steps">Steps</button>
+    <button class="tab" data-tab="external">External</button>
+    <button class="tab" data-tab="fingerprint">Fingerprint</button>
+  </div>
+
+  <!-- Login Tab -->
+  <div id="loginTab" class="tab-content active">
+    <label>Target URL</label>
+    <input type="url" id="url" placeholder="https://example.com/login" />
+    <label>Cookies (key:value per line)</label>
+    <textarea id="cookies" placeholder="session_id=abc123&#10;auth_token=xyz789" rows="3"></textarea>
+    <label>Custom Headers (key:value per line)</label>
+    <textarea id="headers" placeholder="X-CSRF-Token=deadbeef&#10;User-Agent=Mozilla/5.0 ..." rows="3"></textarea>
+    <label>HTTP Method</label>
+    <select id="method">
+      <option value="GET">GET</option>
+      <option value="POST">POST</option>
+      <option value="PUT">PUT</option>
+      <option value="DELETE">DELETE</option>
+    </select>
+    <label>Request Body (optional)</label>
+    <textarea id="body" placeholder='{"username":"user","password":"pass"}' rows="3"></textarea>
+    <button class="primary" id="executeLogin">Execute Login</button>
+    <div id="result"></div>
+  </div>
+
+  <!-- Proxy Tab -->
+  <div id="proxyTab" class="tab-content">
+    <label>Proxy List (one per line, format: scheme://host:port)</label>
+    <textarea id="proxyList" placeholder="http://192.168.1.1:8080&#10;socks5://127.0.0.1:1080" rows="6"></textarea>
+    <button class="primary" id="saveProxy">Save Proxy List</button>
+    <div id="proxyStatus" class="status"></div>
+  </div>
+
+  <!-- Steps Tab -->
+  <div id="stepsTab" class="tab-content">
+    <label>Multi‑Step Sequence (JSON)</label>
+    <textarea id="stepsConfig" rows="10" placeholder='{
+  "pattern": "example.com",
+  "steps": [
+    { "url": "https://example.com/login", "method": "POST", "body": {"user":"admin","pass":"123"}, "extractCookies": true, "extractRegex": "csrf_token=([a-f0-9]+)", "extractName": "csrf" },
+    { "url": "https://example.com/dashboard", "headers": {"X-CSRF": "{{csrf}}"} }
+  ]
+}'></textarea>
+    <button class="primary" id="saveSteps">Save Steps</button>
+    <div id="stepsStatus" class="status"></div>
+  </div>
+
+  <!-- External Tab -->
+  <div id="externalTab" class="tab-content">
+    <label>TOTP API Endpoint (returns JSON with key 'code')</label>
+    <input type="url" id="totpEndpoint" placeholder="https://otp.example.com/totp" />
+    <label>Captcha API Endpoint (POST receives {"url":...}, returns {"token":...})</label>
+    <input type="url" id="captchaEndpoint" placeholder="https://captcha.example.com/solve" />
+    <button class="primary" id="saveExternal">Save External Config</button>
+    <div id="externalStatus" class="status"></div>
+  </div>
+
+  <!-- Fingerprint Tab -->
+  <div id="fingerprintTab" class="tab-content">
+    <fieldset>
+      <legend>Canvas</legend>
+      <label>Enabled <input type="checkbox" id="canvasEnabled" checked /></label>
+      <label>Seed <input type="number" id="canvasSeed" value="12345" /></label>
+    </fieldset>
+    <fieldset>
+      <legend>AudioContext</legend>
+      <label>Enabled <input type="checkbox" id="audioEnabled" checked /></label>
+      <label>Noise level <input type="number" id="audioNoise" value="0.001" step="0.0001" /></label>
+    </fieldset>
+    <fieldset>
+      <legend>Fonts</legend>
+      <label>Enabled <input type="checkbox" id="fontsEnabled" checked /></label>
+      <label>Font list (comma separated) <input type="text" id="fontsList" value="Arial, Times New Roman, Courier New" /></label>
+    </fieldset>
+    <fieldset>
+      <legend>WebGL</legend>
+      <label>Enabled <input type="checkbox" id="webglEnabled" checked /></label>
+      <label>Vendor <input type="text" id="webglVendor" value="Google Inc. (Intel)" /></label>
+      <label>Renderer <input type="text" id="webglRenderer" value="ANGLE (Intel, Intel(R) UHD Graphics 630, OpenGL 4.1)" /></label>
+    </fieldset>
+    <fieldset>
+      <legend>Navigator</legend>
+      <label>User Agent <input type="text" id="navUserAgent" value="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" /></label>
+      <label>Platform <input type="text" id="navPlatform" value="Win32" /></label>
+      <label>Hardware Concurrency <input type="number" id="navHwConcurrency" value="4" min="1" max="32" /></label>
+      <label>Device Memory (GB) <input type="number" id="navDeviceMemory" value="8" min="0.25" step="0.25" /></label>
+    </fieldset>
+    <fieldset>
+      <legend>Screen</legend>
+      <label>Width <input type="number" id="screenWidth" value="1920" /></label>
+      <label>Height <input type="number" id="screenHeight" value="1080" /></label>
+      <label>Color Depth <input type="number" id="screenColorDepth" value="24" /></label>
+    </fieldset>
+    <button class="primary" id="saveFingerprint">Save Fingerprint Profile</button>
+    <div id="fpStatus" class="status"></div>
+  </div>
+
+  <script>
+    // ==============================
+    // POPUP UI LOGIC (inline)
+    // ==============================
+
+    document.querySelectorAll('.tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab + 'Tab').classList.add('active');
+      });
+    });
+
+    function parseKeyValue(text) {
+      const obj = {};
+      text.split('\n').forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        let sepIndex = trimmed.indexOf(':');
+        if (sepIndex === -1) sepIndex = trimmed.indexOf('=');
+        if (sepIndex !== -1) {
+          obj[trimmed.substring(0, sepIndex).trim()] = trimmed.substring(sepIndex + 1).trim();
+        }
+      });
+      return obj;
+    }
+
+    document.getElementById('executeLogin').addEventListener('click', async () => {
+      const url = document.getElementById('url').value.trim();
+      if (!url) { showResult('Please enter a URL.', 'red'); return; }
+      const cookies = parseKeyValue(document.getElementById('cookies').value);
+      const headers = parseKeyValue(document.getElementById('headers').value);
+      const method = document.getElementById('method').value;
+      const body = document.getElementById('body').value.trim() || undefined;
+      const params = { url, cookies, headers, method, body };
+      showResult('Sending request...', 'blue');
+      try {
+        const response = await chrome.runtime.sendMessage({ type: 'performLogin', params });
+        if (response.success) showResult(`✅ Status ${response.status}\n\n${JSON.stringify(response.data, null, 2)}`, 'green');
+        else showResult(`❌ Error: ${response.error}`, 'red');
+      } catch (err) { showResult(`❌ Could not reach background: ${err.message}`, 'red'); }
+    });
+    function showResult(text, color) {
+      const el = document.getElementById('result');
+      el.style.display = 'block'; el.style.color = color; el.textContent = text;
+    }
+
+    document.getElementById('saveProxy').addEventListener('click', async () => {
+      const raw = document.getElementById('proxyList').value;
+      const lines = raw.split('\n').filter(l => l.trim());
+      const list = lines.map(line => {
+        const parts = line.trim().split('://');
+        if (parts.length === 2) {
+          const [scheme, hostPort] = parts;
+          const colon = hostPort.lastIndexOf(':');
+          return { scheme, host: hostPort.substring(0, colon), port: parseInt(hostPort.substring(colon+1), 10) };
+        } else {
+          const colon = line.lastIndexOf(':');
+          return { scheme: 'http', host: line.substring(0, colon), port: parseInt(line.substring(colon+1), 10) };
+        }
+      }).filter(p => p.host && p.port);
+      await chrome.runtime.sendMessage({ type: 'updateProxy', list });
+      document.getElementById('proxyStatus').textContent = `Saved ${list.length} proxies.`;
+    });
+
+    document.getElementById('saveSteps').addEventListener('click', async () => {
+      const raw = document.getElementById('stepsConfig').value.trim();
+      let config;
+      try { config = JSON.parse(raw); } catch (e) { document.getElementById('stepsStatus').textContent = 'Invalid JSON'; return; }
+      await chrome.runtime.sendMessage({ type: 'updateSteps', config });
+      document.getElementById('stepsStatus').textContent = 'Steps saved.';
+    });
+
+    document.getElementById('saveExternal').addEventListener('click', async () => {
+      const totp = document.getElementById('totpEndpoint').value.trim();
+      const captcha = document.getElementById('captchaEndpoint').value.trim();
+      const config = {};
+      if (totp) config.totp = totp;
+      if (captcha) config.captcha = captcha;
+      await chrome.runtime.sendMessage({ type: 'updateExternal', config });
+      document.getElementById('externalStatus').textContent = 'External config saved.';
+    });
+
+    document.getElementById('saveFingerprint').addEventListener('click', async () => {
+      const config = {
+        canvas: { enabled: document.getElementById('canvasEnabled').checked, seed: parseInt(document.getElementById('canvasSeed').value, 10) },
+        audio: { enabled: document.getElementById('audioEnabled').checked, noise: parseFloat(document.getElementById('audioNoise').value) },
+        fonts: { enabled: document.getElementById('fontsEnabled').checked, list: document.getElementById('fontsList').value.split(',').map(s => s.trim()) },
+        webgl: { enabled: document.getElementById('webglEnabled').checked, vendor: document.getElementById('webglVendor').value, renderer: document.getElementById('webglRenderer').value },
+        navigator: { userAgent: document.getElementById('navUserAgent').value, platform: document.getElementById('navPlatform').value, hardwareConcurrency: parseInt(document.getElementById('navHwConcurrency').value, 10), deviceMemory: parseFloat(document.getElementById('navDeviceMemory').value) },
+        screen: { width: parseInt(document.getElementById('screenWidth').value, 10), height: parseInt(document.getElementById('screenHeight').value, 10), colorDepth: parseInt(document.getElementById('screenColorDepth').value, 10) }
+      };
+      await chrome.runtime.sendMessage({ type: 'updateFingerprint', config });
+      document.getElementById('fpStatus').textContent = 'Fingerprint profile saved and applied.';
+    });
+
+    chrome.storage.sync.get(['proxyList', 'stepsConfig', 'externalConfig', 'fingerprintConfig'], (data) => {
+      if (data.proxyList) document.getElementById('proxyList').value = data.proxyList.map(p => `${p.scheme}://${p.host}:${p.port}`).join('\n');
+      if (data.stepsConfig) document.getElementById('stepsConfig').value = JSON.stringify(data.stepsConfig, null, 2);
+      if (data.externalConfig) {
+        if (data.externalConfig.totp) document.getElementById('totpEndpoint').value = data.externalConfig.totp;
+        if (data.externalConfig.captcha) document.getElementById('captchaEndpoint').value = data.externalConfig.captcha;
+      }
+      if (data.fingerprintConfig) {
+        const f = data.fingerprintConfig;
+        if (f.canvas) { document.getElementById('canvasEnabled').checked = f.canvas.enabled !== false; document.getElementById('canvasSeed').value = f.canvas.seed || 123
